@@ -34,7 +34,7 @@ public class OtelContextPropagationBeforeFilter implements Filter {
     };
 
     @Override
-    public void handle(Request request, Response response) throws Exception {
+    public void handle(Request request, Response response) {
         /*
         Note: This is only applicable for manual instrumentation. If you use the Java agent, the headers are injected automatically.
         To update a baggage, you will only need to do the following:

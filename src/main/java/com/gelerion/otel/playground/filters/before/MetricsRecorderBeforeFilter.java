@@ -15,7 +15,7 @@ public class MetricsRecorderBeforeFilter implements Filter {
     }
 
     @Override
-    public void handle(Request request, Response response) throws Exception {
+    public void handle(Request request, Response response) {
         request.attribute("__startNanos", System.nanoTime()); //to measure elapsed time
 
         Attributes attributes = Attributes.builder()

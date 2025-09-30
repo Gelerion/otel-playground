@@ -12,7 +12,7 @@ import spark.Response;
 public class LoggingTraceContextSetterBeforeFilter implements Filter {
 
     @Override
-    public void handle(Request request, Response response) throws Exception {
+    public void handle(Request request, Response response) {
         Context context = Context.current();
 
         var sc = Span.fromContext(context).getSpanContext();

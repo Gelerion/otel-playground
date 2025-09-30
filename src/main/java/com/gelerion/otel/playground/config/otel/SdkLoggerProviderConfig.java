@@ -9,7 +9,7 @@ import io.opentelemetry.sdk.resources.Resource;
 public class SdkLoggerProviderConfig {
 
     public static SdkLoggerProvider create(Resource resource) {
-        SdkLoggerProvider loggerProvider = SdkLoggerProvider.builder()
+        return SdkLoggerProvider.builder()
                 .setResource(resource)
                 .addLogRecordProcessor(
                         BatchLogRecordProcessor.builder(
@@ -18,7 +18,5 @@ public class SdkLoggerProviderConfig {
                                                 .build())
                                 .build())
                 .build();
-
-        return loggerProvider;
     }
 }

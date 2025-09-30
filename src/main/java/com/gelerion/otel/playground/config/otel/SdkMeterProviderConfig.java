@@ -6,8 +6,6 @@ import io.opentelemetry.sdk.metrics.*;
 import io.opentelemetry.sdk.metrics.export.MetricExporter;
 import io.opentelemetry.sdk.metrics.export.MetricReader;
 import io.opentelemetry.sdk.metrics.export.PeriodicMetricReader;
-import io.opentelemetry.sdk.metrics.internal.SdkMeterProviderUtil;
-import io.opentelemetry.sdk.metrics.internal.exemplar.ExemplarFilter;
 import io.opentelemetry.sdk.resources.Resource;
 
 import java.time.Duration;
@@ -32,7 +30,7 @@ public class SdkMeterProviderConfig {
 
     public static SdkMeterProvider create(Resource resource) {
         // A logging exporter
-        MetricExporter otlJsonMetricExporter = OtlpJsonLoggingMetricExporter.create();
+        // MetricExporter otlJsonMetricExporter = OtlpJsonLoggingMetricExporter.create();
 
         // A MetricReader is a plugin extension interface responsible for reading aggregated metrics.
         // They are often paired with MetricExporters to export metrics out of process, but may also be used to serve

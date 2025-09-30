@@ -7,7 +7,6 @@ import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
-import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.opentelemetry.sdk.trace.export.SpanExporter;
 
 import java.time.Duration;
@@ -25,15 +24,13 @@ public class SdkTracerProviderConfig {
      - SpanLimits: Controls the limits of data associated with spans.
      */
     public static SdkTracerProvider create(Resource resource) {
-        SdkTracerProvider sdkTracerProvider = SdkTracerProvider.builder()
+        return SdkTracerProvider.builder()
                 .addResource(resource)
                 // Sends trace data to the logging exporter and prints it to the console in JSON format.
                 //.addSpanProcessor(SimpleSpanProcessor.create(otlpJsonLoggingSpanExporter()))
                 // Here is where we send trace data to the collector (make sure Docker Compose and Grafana Tempo are running).
                 .addSpanProcessor(batchSpanProcessor(otlpHttpSpanExporter(HTTP_COLLECTOR_URL + "/v1/traces")))
                 .build();
-
-        return sdkTracerProvider;
     }
 
     // A batch span processor is used to batch spans before exporting them.
