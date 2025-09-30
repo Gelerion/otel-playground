@@ -1,0 +1,55 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+# This creates a batch processor instance (using default settings)
+# https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor
+processors:
+  batch: {}
+
+exporters:
+  # Traces -> Tempo
+  otlphttp/tempo:
+    endpoint: http://tempo:4318   # OTLP to Tempo
+    tls:
+      insecure: true              # ok for local/dev
+
+  # Metrics -> Prometheus (Collector exposes /metrics on 8889)
+  # Prometheus pull metrics from collector, unfortunately it often drops exemplars on export
+#  prometheus:
+#    endpoint: "0.0.0.0:8889"
+#    namespace: "otel"   # optional prefix for metric names
+#    enable_open_metrics: true
+
+  # Use direct write to Prometheus
+  prometheusremotewrite:
+    endpoint: http://prometheus:9090/api/v1/write
+    resource_to_telemetry_conversion:
+      enabled: true  # convert resource attrs to metric labels
+
+  # Logs -> Loki
+  otlphttp/logs:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    traces:
+      receivers:  [otlp]
+      processors: [batch]
+      exporters:  [otlphttp/tempo]
+
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheusremotewrite]
+
+    logs:
+      receivers:  [otlp]
+      processors: [batch]
+      exporters:  [otlphttp/logs]

@@ -1,0 +1,6 @@
+### GET request to example server
+GET http://localhost:8080/v1/hello/Denis
+
+### GET Simulate servce-to-service interaction
+GET http://localhost:8080/v1/hello/Denis
+traceparent: 00-ae648eec7239bbbf2c7260ac51494a6d-0f137dca09baf7bd-01

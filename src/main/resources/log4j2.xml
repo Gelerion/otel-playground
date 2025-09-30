@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration
+        status="WARN"
+        xmlns="https://logging.apache.org/xml/ns"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="https://logging.apache.org/xml/ns https://logging.apache.org/xml/ns/log4j-config-2.xsd">
+
+    <Appenders>
+        <Console name="CONSOLE">
+            <JsonTemplateLayout/>
+        </Console>
+        <!-- Comes from opentelemetry-log4j-appender-2.17 & ships logs to the Colletor-->
+        <OpenTelemetry name="OpenTelemetryAppender"
+                       captureContextDataAttributes="*"
+                       captureMapMessageAttributes="true"
+                       captureMarkerAttribute="true"
+                       captureCodeAttributes="true"/>
+    </Appenders>
+
+    <Loggers>
+        <Logger name="com.gelerion" level="INFO" additivity="false">
+            <AppenderRef ref="CONSOLE"/>
+            <AppenderRef ref="OpenTelemetryAppender"/>
+        </Logger>
+        <Root level="WARN">
+            <AppenderRef ref="CONSOLE"/>
+            <AppenderRef ref="OpenTelemetryAppender"/>
+        </Root>
+    </Loggers>
+
+</Configuration>
