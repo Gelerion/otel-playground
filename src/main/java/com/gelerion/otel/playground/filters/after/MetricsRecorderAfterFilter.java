@@ -38,7 +38,7 @@ public class MetricsRecorderAfterFilter implements Filter, ExceptionHandler<Exce
         response.type("application/json");
         response.body("{\"error\":\"Internal Server Error\",\"message\":\"" + exception.getMessage() + "\"}");
 
-        logger.error("Exception", exception);
+        //logger.error("Exception", exception);
         recordMetrics(request, response);
 
         // A bit dirty, but also marks the span as an error.

@@ -47,7 +47,7 @@ public class HelloWorldController {
         logger.atInfo().addKeyValue("user.name", name).log("Request received for user {}", name);
         var message = "Hello, " + name + "!";
 
-        sleepQuietly(); // A random delay.
+        sleepQuietly(name); // Path-specific delay.
 
         // Simulates a DB operation.
         logger.atInfo().addKeyValue("user.name", name).log("Find user by name");
@@ -68,9 +68,21 @@ public class HelloWorldController {
                 "recommendations", recommendations));
     }
 
-    private void sleepQuietly() {
+    private void sleepQuietly(String name) {
+        int minDelay, maxDelay;
+        
+        // Path-specific latency: beta and gamma are slower than alpha
+        if ("alpha".equals(name)) {
+            minDelay = 50;
+            maxDelay = 150;
+        } else {
+            // beta and gamma have higher latency
+            minDelay = 200;
+            maxDelay = 500;
+        }
+        
         try {
-            Thread.sleep(ThreadLocalRandom.current().nextInt(50, 300));
+            Thread.sleep(ThreadLocalRandom.current().nextInt(minDelay, maxDelay));
         } catch (InterruptedException ignore) {}
     }
 }

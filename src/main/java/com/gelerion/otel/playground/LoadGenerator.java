@@ -14,10 +14,10 @@ import java.util.concurrent.TimeUnit;
 public class LoadGenerator {
 
     // Deterministic weighted sequence to favor one endpoint over the others.
-    // Ratio: alpha 3x, beta 1x, gamma 1x (repeatable in a fixed cycle)
+    // Ratio: alpha 3x, beta 2x, gamma 1x (repeatable in a fixed cycle)
     private static final List<String> WEIGHTED_SEQUENCE = List.of(
             "alpha", "alpha", "alpha",
-            "beta",
+            "beta",  "beta",
             "gamma"
     );
     private static final String BASE_URL = "http://localhost:8080/v1/hello";
