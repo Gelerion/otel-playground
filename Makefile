@@ -1,23 +1,30 @@
 # Makefile for OpenTelemetry Playground
 
-.PHONY: up down clean load status help logs
+.PHONY: up down clean load help logs scenario-basics scenario-errors scenario-latency
 
 # Default target
 help:
 	@echo "OpenTelemetry Playground - Available Commands:"
 	@echo ""
-	@echo "  make up     - Start the application and observability stack"
-	@echo "  make down   - Stop and remove the observability stack"
-	@echo "  make load   - Run the load generator"
-	@echo "  make logs   - View server logs (tail -f server.log)"
-	@echo "  make status - Show status of all services"
-	@echo "  make clean  - Clean Maven build artifacts"
-	@echo "  make help   - Show this help message"
+	@echo "  make up                - Start the application and observability stack"
+	@echo "  make down              - Stop and remove the observability stack"
+	@echo "  make load              - Run the load generator"
+	@echo "  make logs              - View server logs (tail -f server.log)"
+	@echo "  make clean             - Clean Maven build artifacts"
+	@echo "  make scenario-basics   - Run with low latency & no errors"
+	@echo "  make scenario-errors   - Run with high error rates"
+	@echo "  make scenario-latency  - Run with high latency"
+	@echo "  make help              - Show this help message"
 	@echo ""
 
 # Start the application and the observability stack
+# Uses hardcoded defaults in Java code (~20-30% error rate, moderate latency)
+# For specific scenarios, use: make scenario-basics, make scenario-errors, or make scenario-latency
 up:
 	@echo "🚀 Starting OpenTelemetry Playground..."
+	@echo ""
+	@echo "ℹ️  Using default behavior (code defaults: ~20-30% error rate, 200-3000ms latency)"
+	@echo "   For specific scenarios: make scenario-basics, make scenario-errors, or make scenario-latency"
 	@echo ""
 	@echo "Starting Docker containers for the observability stack..."
 	@docker-compose up -d
@@ -36,12 +43,9 @@ up:
 		echo "📊 Service URLs:"; \
 		echo "  • Java Application:     http://localhost:8080"; \
 		echo "    Available endpoints:"; \
-		echo "      - GET /v1/hello/:name"; \
+		echo "      - GET http://localhost:8080/v1/hello/:name"; \
 		echo "  • Grafana Dashboard:    http://localhost:3000 (admin/admin)"; \
 		echo "  • Prometheus:           http://localhost:9090"; \
-		echo "  • Tempo (Traces):       http://localhost:3200"; \
-		echo "  • Loki (Logs):          http://localhost:3100"; \
-		echo "  • OTEL Collector:       http://localhost:4318 (HTTP) / localhost:4317 (gRPC)"; \
 		echo ""; \
 		echo "🧪 Test the application:"; \
 		echo "  curl http://localhost:8080/v1/hello/Your-Name"; \
@@ -50,7 +54,7 @@ up:
 		echo "  make load"; \
 		echo ""; \
 		echo "📋 View server logs:"; \
-		echo "  tail -f server.log | jq ."; \
+		echo "  make logs"; \
 		echo ""; \
 		echo "🛑 Stop everything:"; \
 		echo "  make down"; \
@@ -98,29 +102,42 @@ logs:
 		echo "Run 'make up' to start the server."; \
 	fi
 
-# Show status of all services
-status:
-	@echo "📊 OpenTelemetry Playground Status:"
-	@echo ""
-	@echo "Docker Services:"
-	@docker-compose ps
-	@echo ""
-	@echo "Service Health Checks:"
-	@echo -n "  • Java Application:     "
-	@curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/v1/hello/health 2>/dev/null || echo "DOWN"
-	@echo -n "  • Grafana:              "
-	@curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 2>/dev/null || echo "DOWN"
-	@echo -n "  • Prometheus:           "
-	@curl -s -o /dev/null -w "%{http_code}" http://localhost:9090 2>/dev/null || echo "DOWN"
-	@echo -n "  • Tempo:                "
-	@curl -s -o /dev/null -w "%{http_code}" http://localhost:3200 2>/dev/null || echo "DOWN"
-	@echo -n "  • Loki:                 "
-	@curl -s -o /dev/null -w "%{http_code}" http://localhost:3100 2>/dev/null || echo "DOWN"
-	@echo ""
-
 # Clean Maven build artifacts
 clean:
 	@echo "🧹 Cleaning Maven project..."
 	@./mvnw clean
 	@rm -f server.log server.pid
 	@echo "✅ Clean completed!"
+
+# Scenario: low latency, no errors (ideal for basics labs)
+scenario-basics:
+	@echo "🎯 Starting scenario: Basics (low latency, no errors)"
+	@if [ -f server.pid ]; then \
+		echo "⚠️  Server is already running. Run 'make down' first to switch scenarios."; \
+		exit 1; \
+	fi
+	@export CLIENT_LATENCY_MIN_MS=50 CLIENT_LATENCY_MAX_MS=150 CLIENT_ERROR_THRESHOLD=100 \
+	       DB_LATENCY_MIN_MS=50 DB_LATENCY_MAX_MS=200 DB_ERROR_THRESHOLD=100 && \
+	$(MAKE) up
+
+# Scenario: high error rate (for error tracking labs)
+scenario-errors:
+	@echo "🎯 Starting scenario: Errors (high failure rate)"
+	@if [ -f server.pid ]; then \
+		echo "⚠️  Server is already running. Run 'make down' first to switch scenarios."; \
+		exit 1; \
+	fi
+	@export CLIENT_LATENCY_MIN_MS=200 CLIENT_LATENCY_MAX_MS=800 CLIENT_ERROR_THRESHOLD=5 \
+	       DB_LATENCY_MIN_MS=200 DB_LATENCY_MAX_MS=1000 DB_ERROR_THRESHOLD=3 && \
+	$(MAKE) up
+
+# Scenario: high latency (for performance debugging labs)
+scenario-latency:
+	@echo "🎯 Starting scenario: Latency (slow operations)"
+	@if [ -f server.pid ]; then \
+		echo "⚠️  Server is already running. Run 'make down' first to switch scenarios."; \
+		exit 1; \
+	fi
+	@export CLIENT_LATENCY_MIN_MS=1000 CLIENT_LATENCY_MAX_MS=3000 CLIENT_ERROR_THRESHOLD=11 \
+	       DB_LATENCY_MIN_MS=2000 DB_LATENCY_MAX_MS=5000 DB_ERROR_THRESHOLD=7 && \
+	$(MAKE) up

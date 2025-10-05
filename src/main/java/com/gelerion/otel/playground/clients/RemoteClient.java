@@ -67,6 +67,7 @@ public class RemoteClient {
 
             // Sets outcome attributes.
             span.setAttribute(HttpAttributes.HTTP_RESPONSE_STATUS_CODE, resp.statusCode());
+
             if (resp.statusCode() >= 500) {
                 span.setStatus(StatusCode.ERROR, "HTTP " + resp.statusCode());
             } else {
@@ -75,9 +76,10 @@ public class RemoteClient {
 
             // Records metrics.
             double seconds = (System.nanoTime() - start) / 1_000_000_000.0;
+            String outcome = resp.statusCode() >= 500 ? "error" : "success";
             metricsProvider.clientRequestDurationHistogram().record(seconds, Attributes.builder()
                     .put("component", "http.client")
-                    .put("outcome", "success")
+                    .put("outcome", outcome)
                     .put(ClientAttributes.CLIENT_ADDRESS, "recommendations")
                     .put(HttpAttributes.HTTP_REQUEST_METHOD, "POST")
                     .build());
@@ -109,8 +111,9 @@ public class RemoteClient {
     private Response send(HttpRequest request) {
         sleepQuietly();
 
-        if (ThreadLocalRandom.current().nextInt(0, 15) > 11) {
-            return new Response(500);
+        int errorThreshold = Integer.parseInt(System.getenv().getOrDefault("CLIENT_ERROR_THRESHOLD", "11"));
+        if (ThreadLocalRandom.current().nextInt(0, 15) > errorThreshold) {
+            return new Response(500); // Recommendations not found
         }
 
         return new Response(200);
@@ -120,7 +123,9 @@ public class RemoteClient {
 
     private void sleepQuietly() {
         try {
-            Thread.sleep(ThreadLocalRandom.current().nextInt(200, 1300));
+            int minMs = Integer.parseInt(System.getenv().getOrDefault("CLIENT_LATENCY_MIN_MS", "200"));
+            int maxMs = Integer.parseInt(System.getenv().getOrDefault("CLIENT_LATENCY_MAX_MS", "1300"));
+            Thread.sleep(ThreadLocalRandom.current().nextInt(minMs, maxMs));
         } catch (InterruptedException ignore) {}
     }
 }

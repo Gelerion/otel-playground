@@ -4,24 +4,30 @@ Welcome to our hands-on guide to understanding OpenTelemetry through manual inst
 
 We provide a fully-functional example demonstrating how to configure the OpenTelemetry SDK, create and manage signals, and correlate them to get a complete picture of your application's behavior. We'll also cover best practices, semantic conventions, and some of the quirks and less-known details I've discovered along the way.
 
+#### Grafana dashboard
+![Grafana dashboard](docs/images/dashboard-example.png)
+
 ## Table of Contents
 
 - [Quick Start](#quick-start)
+  - [Make Targets](#make-targets)
+- [Repo Map](#repo-map)
 - [Project Architecture](#project-architecture)
-  - [Application Request Flow](#application-request-flow)
+    - [Application Request Flow](#application-request-flow)
+- [Tutorial Path](#tutorial-path-hands-on-labs)
 - [Core OpenTelemetry Concepts](#core-opentelemetry-concepts)
-  - [API vs. SDK](#api-vs-sdk)
-  - [The Tracing Trio: Context, Span, and Scope](#the-tracing-trio-context-span-and-scope)
-  - [Semantic Conventions: A Shared Language](#semantic-conventions-a-shared-language)
-  - [Schema URL: Versioning Your Telemetry](#schema-url-versioning-your-telemetry)
+    - [API vs. SDK](#api-vs-sdk)
+    - [The Tracing Trio: Context, Span, and Scope](#the-tracing-trio-context-span-and-scope)
+    - [Semantic Conventions: A Shared Language](#semantic-conventions-a-shared-language)
+    - [Schema URL: Versioning Your Telemetry](#schema-url-versioning-your-telemetry)
 - [Experimental OpenTelemetry Concepts](#experimental-opentelemetry-concepts)
-  - [Exemplars (Beta)](#exemplars-beta)
-  - [Span Links (Beta)](#span-links-beta)
-  - [Other Evolving Concepts](#other-evolving-concepts)
+    - [Exemplars (Beta)](#exemplars-beta)
+    - [Span Links (Beta)](#span-links-beta)
+    - [Other Evolving Concepts](#other-evolving-concepts)
 - [Observability Signals](#observability-signals)
-  - [Tracing: The Story of a Request](#tracing-the-story-of-a-request)
-  - [Metrics: Measuring What Matters](#metrics-measuring-what-matters)
-  - [Logging: Completing the Picture](#logging-completing-the-picture)
+    - [Tracing: The Story of a Request](#tracing-the-story-of-a-request)
+    - [Metrics: Measuring What Matters](#metrics-measuring-what-matters)
+    - [Logging: Completing the Picture](#logging-completing-the-picture)
 - [The Observability Stack (LGTM)](#the-observability-stack-lgtm)
 - [Tips and Quirks](#tips-and-quirks)
 - [What's Next](#whats-next)
@@ -40,10 +46,10 @@ We provide a fully-functional example demonstrating how to configure the OpenTel
     ```
 
 3.  **Explore in Grafana:**
-    -   **Grafana:** [http://localhost:3000](http://localhost:3000) (admin/admin)
-    -   **Tempo (Traces):** [http://localhost:3200](http://localhost:3200)
-    -   **Prometheus (Metrics):** [http://localhost:9090](http://localhost:9090)
-    -   **Loki (Logs):** [http://localhost:3100](http://localhost:3100)
+   -   Open Grafana: [http://localhost:3000](http://localhost:3000) (admin/admin)
+   -   Traces: Grafana → Explore → Tempo
+   -   Metrics: Grafana → Explore → Prometheus (Prometheus UI also at [http://localhost:9090](http://localhost:9090))
+   -   Logs: Grafana → Explore → Loki
 
 4.  **(Optional) Generate continuous load:**
     In a new terminal, run:
@@ -55,6 +61,46 @@ We provide a fully-functional example demonstrating how to configure the OpenTel
     ```bash
     make down
     ```
+
+6. **(Optional) Explore specific scenarios**
+```bash
+# For specific scenarios (always run 'make down' first to switch):
+make scenario-basics   # Low latency, no errors
+make scenario-errors   # High error rate
+make scenario-latency  # High latency
+```
+### Make Targets
+
+| Target         | What it does                                    |
+| -------------- | ----------------------------------------------- |
+| `make up`      | Starts Docker stack, builds and runs the app    |
+| `make down`    | Stops and removes the stack                     |
+| `make load`    | Sends a small steady load at the app            |
+| `make logs`    | Tails app logs                                  |
+| `make scenario-basics`    | Scenario: low latency, no errors   |
+| `make scenario-errors`    | Scenario: high error rate   |
+| `make scenario-latency`    | Scenario: high latency   |
+
+
+## Repo Map
+
+```text
+├─ lgtm/                                  # Grafana, Loki, Tempo, Prometheus configs
+├─ otel/
+│  └─ otel-collector-config.yaml          # Collector pipeline (OTLP in; remote_write/OTLP out)
+├─ src/main/java/com/gelerion/otel/playground/
+│  ├─ config/otel/
+│  │  ├─ SdkOtelConfig.java               # Global OpenTelemetry SDK wiring
+│  │  ├─ SdkTracerProviderConfig.java   # BatchSpanProcessor, exporter
+│  │  ├─ SdkMeterProviderConfig.java    # MetricReader, exporter, histogram views
+│  │  └─ SdkLoggerProviderConfig.java   # Log signal setup
+│  ├─ filters/before/                   # Context extraction, MDC, active_requests
+│  ├─ filters/after/                    # Duration recording, active_requests decrement
+│  ├─ controller/HelloWorldController.java
+│  ├─ clients/RemoteClient.java         # HTTP client span + context injection
+│  └─ repository/DbOperations.java      # DB client span + attributes
+└─ src/main/resources/log4j2.xml        # OpenTelemetry appender + JSON layout
+```
 
 ## Project Architecture
 
@@ -151,8 +197,8 @@ Spark Java's `before()` filters intercept all incoming requests. This is where t
 
 **3. Controller Logic**
 
-The request then reaches the controller (e.g [`HelloWorldController.java`](./src/main/java/com/gelerion/otel/playground/controller/HelloWorldController.java)). 
-Here, we can enrich the active span with business-specific attributes or create new `CLIENT` spans for outbound calls to other services, 
+The request then reaches the controller (e.g [`HelloWorldController.java`](./src/main/java/com/gelerion/otel/playground/controller/HelloWorldController.java)).
+Here, we can enrich the active span with business-specific attributes or create new `CLIENT` spans for outbound calls to other services,
 like the [`RemoteClient`](./src/main/java/com/gelerion/otel/playground/clients/RemoteClient.java) or [`DbOperations`](./src/main/java/com/gelerion/otel/playground/repository/DbOperations.java).
 
 **4. Response and Cleanup (The `after` and `afterAfter` Filters)**
@@ -200,6 +246,246 @@ Incoming Request
        ▼
 Outgoing Response
 ```
+
+## Tutorial Path (Hands-on Labs)
+
+This repository doubles as a tutorial. Follow these labs in order. Each lab has a goal, steps, verification, and an optional challenge.
+
+**Important**: When switching scenarios, always run `make down` first to stop the current server, then run the desired scenario (e.g., `make scenario-errors`). The scenario targets will refuse to start if a server is already running to prevent confusion about which environment variables are active.
+
+### Lab 0 – Bootstrap and Verify
+
+Prerequisite: `make scenario-basics`
+
+- Goal: Bring up the stack and confirm signals flow.
+- Steps:
+    1. Start everything: `make up`
+    2. Send a request: `curl http://localhost:8080/v1/hello/gelerion`
+- Verify:
+    - Grafana → Explore → Tempo: find a trace for service `otel-playground` with span `GET /v1/hello/:name`.
+    - Prometheus: check metric series exist (see [docs/queries.md](docs/queries.md)).
+    - Grafana → Explore → Loki: logs contain `trace_id`/`span_id`.
+- Challenge: Run `make load` and watch dashboards evolve.
+
+### Lab 1 – Tracing Basics (SERVER span)
+
+Prerequisite: `make scenario-basics`
+
+- Goal: Understand Context/Span/Scope and see the `SERVER` span.
+- Steps:
+    1. Read [`OtelContextPropagationBeforeFilter.java`](src/main/java/com/gelerion/otel/playground/filters/before/OtelContextPropagationBeforeFilter.java#L45-L73).
+    2. Call the endpoint again and inspect the trace in Tempo.
+- Verify:
+    - SpanKind is `SERVER`; attributes include `http.request.method`, `http.route`, `http.response.status_code`.
+- Learn more: [docs/tracing.md](docs/tracing.md) (Context, Scope, Span kinds). See also Attributes vs Events vs Status in [docs/tracing.md#attributes-vs-events-vs-status](docs/tracing.md#attributes-vs-events-vs-status).
+- Challenge: Add an event in [`HelloWorldController.java`](src/main/java/com/gelerion/otel/playground/controller/HelloWorldController.java#L41-L46) and confirm it appears in Tempo traces view under "Events".
+
+**Key concepts**
+- A span is created with a parent from the extracted context; a scope makes it current for this thread.
+- Always close the scope and end the span later in cleanup to avoid leaks.
+
+<details>
+<summary>Code excerpts (view sources linked)</summary>
+
+```java
+Context extracted = propagator.extract(Context.current(), request, REQUEST_HEADERS_GETTER);
+
+var serverSpan = tracer().spanBuilder(request.requestMethod() + " " + request.pathInfo())
+        .setSpanKind(SpanKind.SERVER)
+        .setParent(extracted)
+        .startSpan();
+
+Scope scope = Context.current().with(serverSpan).makeCurrent();
+request.attribute(OTEL_SCOPE_ATTR, scope);
+request.attribute(OTEL_SERVER_SPAN_ATTR, serverSpan);
+```
+
+View source: [`OtelContextPropagationBeforeFilter.java`](src/main/java/com/gelerion/otel/playground/filters/before/OtelContextPropagationBeforeFilter.java#L45-L73)
+
+```java
+Span.current().addEvent("Request received", Attributes.of(stringKey("param"), name));
+```
+
+View source: [`HelloWorldController.java`](src/main/java/com/gelerion/otel/playground/controller/HelloWorldController.java#L43-L46)
+
+</details>
+
+### Lab 2 – Propagation and CLIENT spans (HTTP)
+
+Prerequisite: `make scenario-errors`
+
+- Goal: Create and propagate an outbound HTTP `CLIENT` span.
+- Steps:
+    1. Inspect [`RemoteClient.java`](src/main/java/com/gelerion/otel/playground/clients/RemoteClient.java#L37-L66) for header injection and CLIENT span.
+    2. Trigger the call and examine the child `CLIENT` span.
+- Verify:
+    - SpanKind is `CLIENT`; attributes include `http.request.method` and client address. In Grafana → Explore → Tempo, open the server trace and look for the nested CLIENT span; view its Attributes and Events tabs.
+- Learn more: [docs/tracing.md#propagation](docs/tracing.md#propagation).
+- Challenge: Simulate an error path (or run `make scenario-errors`), then ensure `setStatus(ERROR)` is set alongside `recordException`. Verify in Tempo on the CLIENT span (Status=ERROR, Exception event present).
+
+**Key concepts**
+- CLIENT spans are children of the current SERVER span and should inject W3C headers.
+- Mark failures with both `recordException` and `setStatus(ERROR, ...)`.
+
+<details>
+<summary>Code excerpts (view source linked)</summary>
+
+```java
+Span span = OtelContextPropagationBeforeFilter.tracer()
+        .spanBuilder("HTTP POST /api/v1/recommend")
+        .setSpanKind(SpanKind.CLIENT)
+        .startSpan();
+
+try (Scope __ = span.makeCurrent()) {
+    GlobalOpenTelemetry.getPropagators()
+            .getTextMapPropagator()
+            .inject(Context.current(), builder, SETTER);
+} catch (Exception ex) {
+    span.recordException(ex);
+    span.setStatus(StatusCode.ERROR, ex.getMessage());
+    throw ex;
+} finally {
+    span.end();
+}
+```
+
+View source: [`RemoteClient.java`](src/main/java/com/gelerion/otel/playground/clients/RemoteClient.java#L37-L66)
+
+</details>
+
+### Lab 3 – Metrics: Histogram + Views + Exemplars
+
+Prerequisite: `make scenario-latency`
+
+- Goal: Record latency in seconds using histograms with custom buckets and see exemplars.
+- Steps:
+    1. Read [`SdkMeterProviderConfig.java`](src/main/java/com/gelerion/otel/playground/config/otel/SdkMeterProviderConfig.java#L49-L57) (custom buckets via Views).
+    2. Inspect [`MetricsRecorderAfterFilter.java`](src/main/java/com/gelerion/otel/playground/filters/after/MetricsRecorderAfterFilter.java#L44-L51) and record durations.
+    3. Generate load: `make load`.
+- Verify:
+    - PromQL p99 query returns values (see [docs/queries.md](docs/queries.md)).
+    - Exemplars link to traces when available.
+- Learn more: [docs/metrics.md](docs/metrics.md).
+- Challenge: Adjust bucket boundaries in `config/otel/SdkMeterProviderConfig.java`, run `make down && make up`, then `make load`; observe the histogram and p95/p99 shift.
+
+**Key concepts**
+- Use Views to define explicit buckets in seconds; push via PeriodicMetricReader to preserve exemplars.
+- Record while a span is current to increase exemplar linkage chances.
+
+<details>
+<summary>Code excerpts (view sources linked)</summary>
+
+```java
+List<Double> buckets = List.of(0.1, 0.2, 0.3, 0.5, 0.75, 1d, 1.5, 2d, 3d, 5d, 7d);
+
+View finerBucketsView = View.builder()
+        .setAggregation(Aggregation.explicitBucketHistogram(buckets))
+        .build();
+
+SdkMeterProviderBuilder builder = SdkMeterProvider.builder()
+        .registerView(InstrumentSelector.builder().setType(InstrumentType.HISTOGRAM).build(), finerBucketsView);
+```
+
+View source: [`SdkMeterProviderConfig.java`](src/main/java/com/gelerion/otel/playground/config/otel/SdkMeterProviderConfig.java#L49-L57)
+
+```java
+double seconds = durationsSeconds(request.attribute("__startNanos"));
+
+Attributes attributes = Attributes.builder()
+        .put(HttpAttributes.HTTP_REQUEST_METHOD, request.requestMethod())
+        .put(HttpAttributes.HTTP_ROUTE, request.pathInfo())
+        .put(HttpAttributes.HTTP_RESPONSE_STATUS_CODE, response.status())
+        .build();
+
+metricsProvider.serverRequestDurationHistogram().record(seconds, attributes);
+```
+
+View source: [`MetricsRecorderAfterFilter.java`](src/main/java/com/gelerion/otel/playground/filters/after/MetricsRecorderAfterFilter.java#L44-L51)
+
+</details>
+
+### Lab 4 – Logging: Correlate Logs with Traces
+
+Prerequisite: `make scenario-basics`
+
+- Goal: See `trace_id` and `span_id` in logs and in Loki.
+- Steps:
+    1. Inspect [`log4j2.xml`](src/main/resources/log4j2.xml#L12-L18) for the `<OpenTelemetry>` appender.
+    2. Review [`LoggingTraceContextSetterBeforeFilter.java`](src/main/java/com/gelerion/otel/playground/filters/before/LoggingTraceContextSetterBeforeFilter.java#L18-L29) (MDC injection).
+    3. Call the endpoint and open Loki.
+- Verify:
+    - Logs include `trace_id`/`span_id`; LogQL in `docs/queries.md` returns correlated entries.
+- Learn more: [docs/logging.md](docs/logging.md).
+- Challenge: Add a structured key to logs (e.g., `user_id`) and filter by it in Loki.
+
+**Key concepts**
+- The OpenTelemetry Log4j2 appender enriches logs with trace context; MDC ensures IDs show up in non-OTel appenders too.
+
+<details>
+<summary>Code excerpts (view sources linked)</summary>
+
+```xml
+<OpenTelemetry name="OpenTelemetryAppender"
+               captureContextDataAttributes="*"
+               captureMapMessageAttributes="true"
+               captureMarkerAttribute="true"
+               captureCodeAttributes="true"/>
+```
+
+View source: [`log4j2.xml`](src/main/resources/log4j2.xml#L12-L18)
+
+```java
+SpanContext sc = Span.current().getSpanContext();
+if (sc.isValid()) {
+    ThreadContext.put("trace_id", sc.getTraceId());
+    ThreadContext.put("span_id", sc.getSpanId());
+}
+```
+
+View source: [`LoggingTraceContextSetterBeforeFilter.java`](src/main/java/com/gelerion/otel/playground/filters/before/LoggingTraceContextSetterBeforeFilter.java#L18-L29)
+
+</details>
+
+### Lab 5 – Semantic Conventions and Schema URLs
+
+Prerequisite: `make scenario-basics`
+
+- Goal: Apply semconv consistently and declare schema version.
+- Steps:
+    1. Inspect instrumentation version and schema URL in [`OtelContextPropagationBeforeFilter.java`](src/main/java/com/gelerion/otel/playground/filters/before/OtelContextPropagationBeforeFilter.java#L75-L81).
+    2. Ensure attributes use canonical names (see semconv docs).
+- Verify:
+    - Attributes follow `http.*`, `db.*`, and `client.*` naming.
+- Learn more: [docs/semconv-schema.md](docs/semconv-schema.md).
+- Challenge: Bump schema version and see how the backend normalizes attributes.
+
+**Key concepts**
+- Use canonical semconv names and declare schema URL to enable backend normalization.
+
+<details>
+<summary>Code excerpts</summary>
+
+```java
+// filters/before/OtelContextPropagationBeforeFilter.java
+return GlobalOpenTelemetry.tracerBuilder("com.gelerion.otel.playground.http")
+        .setInstrumentationVersion("1.0.0")
+        .setSchemaUrl(SchemaUrls.V1_37_0)
+        .build();
+```
+
+</details>
+
+### Lab 6 – Span Links and Async
+
+Prerequisite: `make scenario-basics`
+
+- Goal: Model causality outside parent/child trees.
+- Steps:
+    1. Review the Span Links example in [docs/tracing.md#span-links](docs/tracing.md#span-links).
+    2. Experiment by adding a link in an internal span.
+- Verify: Linked span metadata appears in the UI (support varies).
+- Challenge: Create an `INTERNAL` span with a `SpanLink` to a prior trace or to the incoming `SERVER` span; verify link metadata in Tempo.
+- Learn more: [docs/tracing.md#span-links](docs/tracing.md#span-links).
 
 ## Core OpenTelemetry Concepts
 
@@ -275,7 +561,7 @@ public static Tracer tracer() {
 Without schema URLs, mixed-version telemetry across services can become inconsistent (e.g., http.status vs. http.response.status_code). Declaring schemas ensures tools can normalize and compare apples to apples.
 
 ## Experimental OpenTelemetry Concepts
-  
+
 ### Exemplars (Beta)
 
 Exemplars are a powerful feature that creates a direct link from a **metric** time-series back to a specific **trace**. For example, if a latency histogram shows a spike in its 99th percentile bucket, an exemplar attaches the `trace_id` of a request that fell into that bucket.
@@ -501,7 +787,7 @@ try (Scope _ = span.makeCurrent()) {
 ```
 
 </details>
-  
+
 <details>
 <summary>Expand for Tracing Tips & Pitfalls</summary>
 
@@ -536,7 +822,7 @@ Using the wrong kind breaks service maps and can misrepresent latency.
 
 [Spec: Attributes](https://opentelemetry.io/docs/specs/otel/trace/api/#set-attributes)  
 [Spec: Events](https://opentelemetry.io/docs/specs/otel/trace/api/#add-events)  
-[Spec: RecordException](https://opentelemetry.io/docs/specs/otel/trace/api/#record-exception)  
+[Spec: RecordException](https://opentelemetry.io/docs/specs/otel/trace/api/#record-exception)
 
 
 #### 3. Always Mark Errors Explicitly
@@ -551,9 +837,9 @@ span.setStatus(StatusCode.ERROR);
 ```
 
 **Pitfall:** Recording the exception alone does not change the status. Without `setStatus(ERROR)`, dashboards and SLOs will under-report errors.
-  
+
 [Spec: Set Status](https://opentelemetry.io/docs/specs/otel/trace/api/#set-status)  
-[Spec: Exceptions](https://opentelemetry.io/docs/specs/otel/trace/semantic_conventions/exceptions/)  
+[Spec: Exceptions](https://opentelemetry.io/docs/specs/otel/trace/semantic_conventions/exceptions/)
 
 
 #### 4. Remember about Cardinality
@@ -563,7 +849,7 @@ span.setStatus(StatusCode.ERROR);
     * Do    `GET /users/{id}`
     * Don't `GET /users/12345`
 * **Attributes** → can carry higher cardinality (`user.id`, `request.id`), but excessive cardinality can still overload backends.
-  
+
 [Spec: Span Names](https://opentelemetry.io/docs/specs/otel/trace/api/#span)
 
 </details>
@@ -571,7 +857,7 @@ span.setStatus(StatusCode.ERROR);
 ### Metrics: Measuring What Matters
 
 Metrics are numerical measurements aggregated over time, designed for efficiency and mathematical analysis (calculating rates, averages, percentiles). We define our primary metrics in [`MetricsProvider.java`](./src/main/java/com/gelerion/otel/playground/metrics/MetricsProvider.java).
-  
+
 Setting up metrics involves configuring the `SdkMeterProvider`:
 -   **`MetricReader`**: Connects the SDK to an exporter. In this project, we use a `PeriodicMetricReader` to push metrics at a regular interval.
 -   **`MetricExporter`**: Sends the metrics to a backend. Here, we use the `OtlpHttpMetricExporter`.
@@ -636,7 +922,7 @@ The main reason for choosing the push model here is that the standard Prometheus
 A common point of confusion is the unit for durations. OpenTelemetry and Prometheus semantic conventions recommend **seconds**. However, the default histogram buckets in the OTel SDK are often better suited for milliseconds (e.g., `[5, 10, 25, 50, 75, 100, 250, 500, 750, ...]`).
 
 If durations are recorded in seconds with these default buckets, most of our data will likely fall into the very first bucket, making the histogram less useful. We address this in this project by defining a **View** to provide more granular buckets suitable for measurements in seconds.
- 
+
 Here’s a look at the configuration in [`SdkMeterProviderConfig.java`](./src/main/java/com/gelerion/otel/playground/config/otel/SdkMeterProviderConfig.java)
 ```java
 
@@ -753,3 +1039,14 @@ This playground is a starting point. Once you’re comfortable, we recommend ext
 3.  **Backend Swap:** Modify the `otel-collector-config.yaml` to send telemetry to a different backend, like Jaeger for traces or Elasticsearch for logs.
 4.  **Transport Experimentation:** Switch the exporters from OTLP/HTTP to OTLP/gRPC and observe any differences in performance.
 5.  **Framework Integration:** Try building a similar application using Spring Boot and Micrometer to compare the developer experience.
+
+## Recap
+
+- **Tracing**: [docs/tracing.md](docs/tracing.md) — Context/Span/Scope, propagation, async, links.
+- **Metrics**: [docs/metrics.md](docs/metrics.md) — Instruments, views, buckets, exemplars.
+- **Logging**: [docs/logging.md](docs/logging.md) — Appender, MDC, correlation.
+- **Sampling**: [docs/sampling.md](docs/sampling.md) — Head and tail strategies, trade-offs.
+- **Async**: [docs/async.md](docs/async.md) — Context propagation across threads and executors.
+- **Dashboards**: [docs/dashboards.md](docs/dashboards.md) — How panels and queries work.
+- **Semantic Conventions**: [docs/semconv-schema.md](docs/semconv-schema.md) — Naming, schema URLs, design principles.
+- **Queries**: [docs/queries.md](docs/queries.md) — PromQL and LogQL cheat sheet.

@@ -32,6 +32,12 @@ public class MetricsRecorderAfterFilter implements Filter, ExceptionHandler<Exce
     // An exceptional path.
     @Override
     public void handle(Exception exception, Request request, Response response) {
+        response.status(500);
+        // spark-java quirk: when an exception handler sets a status code but doesn't set a response body,
+        // Spark may revert to its default 404 behavior
+        response.type("application/json");
+        response.body("{\"error\":\"Internal Server Error\",\"message\":\"" + exception.getMessage() + "\"}");
+
         logger.error("Exception", exception);
         recordMetrics(request, response);
 

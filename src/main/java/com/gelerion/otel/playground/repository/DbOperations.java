@@ -101,7 +101,9 @@ public class DbOperations {
     private void randomWaitOrThrow() {
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
 
-        int waitMillis = rnd.nextInt(200, 3000);
+        int minMs = Integer.parseInt(System.getenv().getOrDefault("DB_LATENCY_MIN_MS", "200"));
+        int maxMs = Integer.parseInt(System.getenv().getOrDefault("DB_LATENCY_MAX_MS", "3000"));
+        int waitMillis = rnd.nextInt(minMs, maxMs);
         try {
             Thread.sleep(waitMillis);
         } catch (InterruptedException e) {
@@ -109,7 +111,8 @@ public class DbOperations {
         }
 
         // A throw?
-        if (rnd.nextInt(1, 11) > 7) {
+        int errorThreshold = Integer.parseInt(System.getenv().getOrDefault("DB_ERROR_THRESHOLD", "7"));
+        if (rnd.nextInt(1, 11) > errorThreshold) {
             throw new RuntimeException("Database not reachable");
         }
     }

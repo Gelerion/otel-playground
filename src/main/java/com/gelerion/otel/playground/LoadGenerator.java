@@ -6,7 +6,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -14,19 +13,31 @@ import java.util.concurrent.TimeUnit;
 
 public class LoadGenerator {
 
-    private static final List<String> NAMES = List.of("alpha", "beta", "gamma");
+    // Deterministic weighted sequence to favor one endpoint over the others.
+    // Ratio: alpha 3x, beta 1x, gamma 1x (repeatable in a fixed cycle)
+    private static final List<String> WEIGHTED_SEQUENCE = List.of(
+            "alpha", "alpha", "alpha",
+            "beta",
+            "gamma"
+    );
     private static final String BASE_URL = "http://localhost:8080/v1/hello";
     private static final HttpClient client = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
             .build();
-    private static final Random random = new Random();
+    private static int sequenceIndex = 0;
+
+    private static String nextName() {
+        String name = WEIGHTED_SEQUENCE.get(sequenceIndex);
+        sequenceIndex = (sequenceIndex + 1) % WEIGHTED_SEQUENCE.size();
+        return name;
+    }
 
     public static void main(String[] args) throws InterruptedException {
         System.out.println("Starting load generator...");
         ExecutorService executor = Executors.newFixedThreadPool(3);
 
         while (true) {
-            String name = NAMES.get(random.nextInt(NAMES.size()));
+            String name = nextName();
             String url = BASE_URL + "/" + name;
 
             HttpRequest request = HttpRequest.newBuilder()
@@ -44,8 +55,8 @@ public class LoadGenerator {
 
             executor.submit(future::join);
 
-            // Wait for a random delay between 500ms and 1500ms
-            TimeUnit.MILLISECONDS.sleep(500 + random.nextInt(1000));
+            // Wait for a pseudo-random delay between 500ms and 1500ms
+            TimeUnit.MILLISECONDS.sleep(500 + (int) (Math.random() * 1000));
         }
     }
 }
