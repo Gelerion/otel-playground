@@ -1,6 +1,6 @@
 package com.gelerion.otel.playground.clients;
 
-import com.gelerion.otel.playground.featureflags.FeatureFlag;
+import com.gelerion.otel.playground.feature.flags.FeatureFlag;
 import com.gelerion.otel.playground.filters.before.OtelContextPropagationBeforeFilter;
 import com.gelerion.otel.playground.metrics.MetricsProvider;
 import io.opentelemetry.api.GlobalOpenTelemetry;

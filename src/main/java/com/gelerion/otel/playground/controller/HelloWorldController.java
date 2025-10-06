@@ -2,7 +2,7 @@ package com.gelerion.otel.playground.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.gelerion.otel.playground.clients.RemoteClient;
-import com.gelerion.otel.playground.featureflags.FeatureFlag;
+import com.gelerion.otel.playground.feature.flags.FeatureFlag;
 import com.gelerion.otel.playground.metrics.MetricsProvider;
 import com.gelerion.otel.playground.repository.DbOperations;
 import io.opentelemetry.api.common.Attributes;

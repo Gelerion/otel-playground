@@ -5,7 +5,7 @@ import static spark.Spark.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gelerion.otel.playground.config.otel.SdkOtelConfig;
 import com.gelerion.otel.playground.controller.HelloWorldController;
-import com.gelerion.otel.playground.featureflags.FeatureFlag;
+import com.gelerion.otel.playground.feature.flags.FeatureFlag;
 import com.gelerion.otel.playground.filters.after.MetricsRecorderAfterFilter;
 import com.gelerion.otel.playground.filters.before.FeatureFlagBeforeFilter;
 import com.gelerion.otel.playground.filters.before.LoggingTraceContextSetterBeforeFilter;
