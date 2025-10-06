@@ -2,6 +2,7 @@ package com.gelerion.otel.playground.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.gelerion.otel.playground.clients.RemoteClient;
+import com.gelerion.otel.playground.featureflags.FeatureFlag;
 import com.gelerion.otel.playground.metrics.MetricsProvider;
 import com.gelerion.otel.playground.repository.DbOperations;
 import io.opentelemetry.api.common.Attributes;
@@ -47,7 +48,7 @@ public class HelloWorldController {
         logger.atInfo().addKeyValue("user.name", name).log("Request received for user {}", name);
         var message = "Hello, " + name + "!";
 
-        sleepQuietly(name); // Path-specific delay.
+        sleepQuietly();
 
         // Simulates a DB operation.
         logger.atInfo().addKeyValue("user.name", name).log("Find user by name");
@@ -68,21 +69,14 @@ public class HelloWorldController {
                 "recommendations", recommendations));
     }
 
-    private void sleepQuietly(String name) {
-        int minDelay, maxDelay;
-        
-        // Path-specific latency: beta and gamma are slower than alpha
-        if ("alpha".equals(name)) {
-            minDelay = 50;
-            maxDelay = 150;
-        } else {
-            // beta and gamma have higher latency
-            minDelay = 200;
-            maxDelay = 500;
-        }
-        
+    private void sleepQuietly() {
+        FeatureFlag flag = FeatureFlag.current();
         try {
-            Thread.sleep(ThreadLocalRandom.current().nextInt(minDelay, maxDelay));
+            int delay = ThreadLocalRandom.current().nextInt(
+                    flag.controllerMinLatency(), 
+                    flag.controllerMaxLatency()
+            );
+            Thread.sleep(delay);
         } catch (InterruptedException ignore) {}
     }
 }

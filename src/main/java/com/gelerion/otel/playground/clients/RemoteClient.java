@@ -1,5 +1,6 @@
 package com.gelerion.otel.playground.clients;
 
+import com.gelerion.otel.playground.featureflags.FeatureFlag;
 import com.gelerion.otel.playground.filters.before.OtelContextPropagationBeforeFilter;
 import com.gelerion.otel.playground.metrics.MetricsProvider;
 import io.opentelemetry.api.GlobalOpenTelemetry;
@@ -111,9 +112,9 @@ public class RemoteClient {
     private Response send(HttpRequest request) {
         sleepQuietly();
 
-        int errorThreshold = Integer.parseInt(System.getenv().getOrDefault("CLIENT_ERROR_THRESHOLD", "11"));
-        if (ThreadLocalRandom.current().nextInt(0, 15) > errorThreshold) {
-            return new Response(500); // Recommendations not found
+        FeatureFlag flag = FeatureFlag.current();
+        if (ThreadLocalRandom.current().nextDouble() < flag.clientErrorRate()) {
+            return new Response(500);
         }
 
         return new Response(200);
@@ -122,10 +123,13 @@ public class RemoteClient {
     private record Response(int statusCode) {}
 
     private void sleepQuietly() {
+        FeatureFlag flag = FeatureFlag.current();
         try {
-            int minMs = Integer.parseInt(System.getenv().getOrDefault("CLIENT_LATENCY_MIN_MS", "200"));
-            int maxMs = Integer.parseInt(System.getenv().getOrDefault("CLIENT_LATENCY_MAX_MS", "1300"));
-            Thread.sleep(ThreadLocalRandom.current().nextInt(minMs, maxMs));
+            int delay = ThreadLocalRandom.current().nextInt(
+                    flag.clientMinLatency(), 
+                    flag.clientMaxLatency()
+            );
+            Thread.sleep(delay);
         } catch (InterruptedException ignore) {}
     }
 }

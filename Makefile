@@ -1,30 +1,28 @@
 # Makefile for OpenTelemetry Playground
 
-.PHONY: up down clean load help logs scenario-basics scenario-errors scenario-latency
+.PHONY: up down clean load help logs send-request
 
 # Default target
 help:
 	@echo "OpenTelemetry Playground - Available Commands:"
 	@echo ""
-	@echo "  make up                - Start the application and observability stack"
-	@echo "  make down              - Stop and remove the observability stack"
-	@echo "  make load              - Run the load generator"
-	@echo "  make logs              - View server logs (tail -f server.log)"
-	@echo "  make clean             - Clean Maven build artifacts"
-	@echo "  make scenario-basics   - Run with low latency & no errors"
-	@echo "  make scenario-errors   - Run with high error rates"
-	@echo "  make scenario-latency  - Run with high latency"
-	@echo "  make help              - Show this help message"
+	@echo "  make up                        - Start the application and observability stack"
+	@echo "  make down                      - Stop and remove the observability stack"
+	@echo "  make logs                      - View server logs (tail -f server.log)"
+	@echo "  make clean                     - Clean Maven build artifacts"
+	@echo "  make send-request              - Send a single test request"
+	@echo "  make load [mode=high-latency]  - Run continuous load generator"
+	@echo "  make help                      - Show this help message"
 	@echo ""
 
 # Start the application and the observability stack
-# Uses hardcoded defaults in Java code (~20-30% error rate, moderate latency)
-# For specific scenarios, use: make scenario-basics, make scenario-errors, or make scenario-latency
 up:
 	@echo "🚀 Starting OpenTelemetry Playground..."
 	@echo ""
-	@echo "ℹ️  Using default behavior (code defaults: ~20-30% error rate, 200-3000ms latency)"
-	@echo "   For specific scenarios: make scenario-basics, make scenario-errors, or make scenario-latency"
+	@echo "ℹ️  Using default behavior (semi-low latency, 10% error rate)"
+	@echo "   Switch behavior using X-Feature-Flag header:"
+	@echo "     • default            - semi-low latency, 10% errors"
+	@echo "     • high-latency       - high latency spikes, 10% errors"
 	@echo ""
 	@echo "Starting Docker containers for the observability stack..."
 	@docker-compose up -d
@@ -42,16 +40,15 @@ up:
 		echo ""; \
 		echo "📊 Service URLs:"; \
 		echo "  • Java Application:     http://localhost:8080"; \
-		echo "    Available endpoints:"; \
-		echo "      - GET http://localhost:8080/v1/hello/:name"; \
-		echo "  • Grafana Dashboard:    http://localhost:3000 (admin/admin)"; \
+		echo "  • Grafana Dashboard:    http://localhost:3000 (admin/admin123)"; \
 		echo "  • Prometheus:           http://localhost:9090"; \
 		echo ""; \
 		echo "🧪 Test the application:"; \
-		echo "  curl http://localhost:8080/v1/hello/Your-Name"; \
+		echo "  make send-request       # Single request"; \
 		echo ""; \
 		echo "📈 Run load generator:"; \
-		echo "  make load"; \
+		echo "  make load                    # Default mode"; \
+		echo "  make load mode=high-latency  # High-latency mode"; \
 		echo ""; \
 		echo "📋 View server logs:"; \
 		echo "  make logs"; \
@@ -77,13 +74,20 @@ down:
 	@docker-compose down
 	@echo "✅ All services stopped!"
 
-# Run the load generator
+# Run the load generator with optional mode
 load:
-	@echo "📈 Starting load generator..."
-	@echo "This will generate traffic to test the observability stack."
+	@if [ -n "$(mode)" ]; then \
+		echo "📈 Starting load generator (mode: $(mode))..."; \
+	else \
+		echo "📈 Starting load generator (default mode)..."; \
+	fi
 	@echo "Press Ctrl+C to stop the load generator."
 	@echo ""
-	@./mvnw compile -q exec:java -Dexec.mainClass="com.gelerion.otel.playground.LoadGenerator"
+	@if [ -n "$(mode)" ]; then \
+		./mvnw compile -q exec:java -Dexec.mainClass="com.gelerion.otel.playground.LoadGenerator" -Dexec.args="$(mode)"; \
+	else \
+		./mvnw compile -q exec:java -Dexec.mainClass="com.gelerion.otel.playground.LoadGenerator"; \
+	fi
 
 # View server logs
 logs:
@@ -109,35 +113,7 @@ clean:
 	@rm -f server.log server.pid
 	@echo "✅ Clean completed!"
 
-# Scenario: low latency, no errors (ideal for basics labs)
-scenario-basics:
-	@echo "🎯 Starting scenario: Basics (low latency, no errors)"
-	@if [ -f server.pid ]; then \
-		echo "⚠️  Server is already running. Run 'make down' first to switch scenarios."; \
-		exit 1; \
-	fi
-	@export CLIENT_LATENCY_MIN_MS=50 CLIENT_LATENCY_MAX_MS=150 CLIENT_ERROR_THRESHOLD=100 \
-	       DB_LATENCY_MIN_MS=50 DB_LATENCY_MAX_MS=200 DB_ERROR_THRESHOLD=100 && \
-	$(MAKE) up
-
-# Scenario: high error rate (for error tracking labs)
-scenario-errors:
-	@echo "🎯 Starting scenario: Errors (high failure rate)"
-	@if [ -f server.pid ]; then \
-		echo "⚠️  Server is already running. Run 'make down' first to switch scenarios."; \
-		exit 1; \
-	fi
-	@export CLIENT_LATENCY_MIN_MS=200 CLIENT_LATENCY_MAX_MS=800 CLIENT_ERROR_THRESHOLD=5 \
-	       DB_LATENCY_MIN_MS=200 DB_LATENCY_MAX_MS=1000 DB_ERROR_THRESHOLD=3 && \
-	$(MAKE) up
-
-# Scenario: high latency (for performance debugging labs)
-scenario-latency:
-	@echo "🎯 Starting scenario: Latency (slow operations)"
-	@if [ -f server.pid ]; then \
-		echo "⚠️  Server is already running. Run 'make down' first to switch scenarios."; \
-		exit 1; \
-	fi
-	@export CLIENT_LATENCY_MIN_MS=1000 CLIENT_LATENCY_MAX_MS=3000 CLIENT_ERROR_THRESHOLD=11 \
-	       DB_LATENCY_MIN_MS=2000 DB_LATENCY_MAX_MS=5000 DB_ERROR_THRESHOLD=7 && \
-	$(MAKE) up
+# Send a single request
+send-request:
+	@echo "🧪 Sending request..."
+	@curl http://localhost:8080/v1/hello/john

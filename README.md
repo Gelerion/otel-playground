@@ -46,7 +46,7 @@ We provide a fully-functional example demonstrating how to configure the OpenTel
     ```
 
 3.  **Explore in Grafana:**
-   -   Open Grafana: [http://localhost:3000](http://localhost:3000) (admin/admin)
+   -   Open Grafana: [http://localhost:3000](http://localhost:3000) (admin/admin123)
    -   Traces: Grafana → Explore → Tempo
    -   Metrics: Grafana → Explore → Prometheus (Prometheus UI also at [http://localhost:9090](http://localhost:9090))
    -   Logs: Grafana → Explore → Loki
@@ -54,32 +54,28 @@ We provide a fully-functional example demonstrating how to configure the OpenTel
 4.  **(Optional) Generate continuous load:**
     In a new terminal, run:
     ```bash
+    # Default mode (semi-low latency, 10% errors)
     make load
+    
+    # Or with high-latency mode
+    make load mode=high-latency
     ```
 
 5.  **Stop everything when you're done:**
     ```bash
     make down
     ```
-
-6. **(Optional) Explore specific scenarios**
-```bash
-# For specific scenarios (always run 'make down' first to switch):
-make scenario-basics   # Low latency, no errors
-make scenario-errors   # High error rate
-make scenario-latency  # High latency
-```
 ### Make Targets
 
-| Target         | What it does                                    |
-| -------------- | ----------------------------------------------- |
-| `make up`      | Starts Docker stack, builds and runs the app    |
-| `make down`    | Stops and removes the stack                     |
-| `make load`    | Sends a small steady load at the app            |
-| `make logs`    | Tails app logs                                  |
-| `make scenario-basics`    | Scenario: low latency, no errors   |
-| `make scenario-errors`    | Scenario: high error rate   |
-| `make scenario-latency`    | Scenario: high latency   |
+| Target                    | What it does                                    |
+|---------------------------| ----------------------------------------------- |
+| `make up`                 | Starts Docker stack, builds and runs the app    |
+| `make down`               | Stops and removes the stack                     |
+| `make send-request`       | Sends a single test request                     |
+| `make load`               | Runs continuous load generator (default mode)   |
+| `make load mode=high-latency` | Runs load generator with high latency   |
+| `make logs`               | Tails app logs                                  |
+| `make clean`              | Cleans Maven build artifacts                    |
 
 
 ## Repo Map
@@ -106,7 +102,7 @@ make scenario-latency  # High latency
 
 Our playground has three main pieces:
 
-1.  **Java Application (`otel-playground`)**
+1.  **Java Application** (`otel-playground`)
     A small [Spark Java](https://sparkjava.com/) web app, which we've instrumented by hand using the OpenTelemetry SDK. Filters create and close spans, metrics are recorded on each request, and logs are enriched with trace context.
 
 2.  **OpenTelemetry Collector**
@@ -251,16 +247,12 @@ Outgoing Response
 
 This repository doubles as a tutorial. Follow these labs in order. Each lab has a goal, steps, verification, and an optional challenge.
 
-**Important**: When switching scenarios, always run `make down` first to stop the current server, then run the desired scenario (e.g., `make scenario-errors`). The scenario targets will refuse to start if a server is already running to prevent confusion about which environment variables are active.
-
 ### Lab 0 – Bootstrap and Verify
-
-Prerequisite: `make scenario-basics`
 
 - Goal: Bring up the stack and confirm signals flow.
 - Steps:
     1. Start everything: `make up`
-    2. Send a request: `curl http://localhost:8080/v1/hello/gelerion`
+    2. Send a request: `make send-request` or `curl http://localhost:8080/v1/hello/gelerion`
 - Verify:
     - Grafana → Explore → Tempo: find a trace for service `otel-playground` with span `GET /v1/hello/:name`.
     - Prometheus: check metric series exist (see [docs/queries.md](docs/queries.md)).
@@ -268,8 +260,6 @@ Prerequisite: `make scenario-basics`
 - Challenge: Run `make load` and watch dashboards evolve.
 
 ### Lab 1 – Tracing Basics (SERVER span)
-
-Prerequisite: `make scenario-basics`
 
 - Goal: Understand Context/Span/Scope and see the `SERVER` span.
 - Steps:
@@ -312,8 +302,6 @@ View source: [`HelloWorldController.java`](src/main/java/com/gelerion/otel/playg
 
 ### Lab 2 – Propagation and CLIENT spans (HTTP)
 
-Prerequisite: `make scenario-errors`
-
 - Goal: Create and propagate an outbound HTTP `CLIENT` span.
 - Steps:
     1. Inspect [`RemoteClient.java`](src/main/java/com/gelerion/otel/playground/clients/RemoteClient.java#L37-L66) for header injection and CLIENT span.
@@ -321,7 +309,7 @@ Prerequisite: `make scenario-errors`
 - Verify:
     - SpanKind is `CLIENT`; attributes include `http.request.method` and client address. In Grafana → Explore → Tempo, open the server trace and look for the nested CLIENT span; view its Attributes and Events tabs.
 - Learn more: [docs/tracing.md#propagation](docs/tracing.md#propagation).
-- Challenge: Simulate an error path (or run `make scenario-errors`), then ensure `setStatus(ERROR)` is set alongside `recordException`. Verify in Tempo on the CLIENT span (Status=ERROR, Exception event present).
+- Challenge: Simulate an error path, then ensure `setStatus(ERROR)` is set alongside `recordException`. Verify in Tempo on the CLIENT span (Status=ERROR, Exception event present).
 
 **Key concepts**
 - CLIENT spans are children of the current SERVER span and should inject W3C headers.
@@ -355,18 +343,16 @@ View source: [`RemoteClient.java`](src/main/java/com/gelerion/otel/playground/cl
 
 ### Lab 3 – Metrics: Histogram + Views + Exemplars
 
-Prerequisite: `make scenario-latency`
-
 - Goal: Record latency in seconds using histograms with custom buckets and see exemplars.
 - Steps:
     1. Read [`SdkMeterProviderConfig.java`](src/main/java/com/gelerion/otel/playground/config/otel/SdkMeterProviderConfig.java#L49-L57) (custom buckets via Views).
     2. Inspect [`MetricsRecorderAfterFilter.java`](src/main/java/com/gelerion/otel/playground/filters/after/MetricsRecorderAfterFilter.java#L44-L51) and record durations.
-    3. Generate load: `make load`.
+    3. Generate load: `make load` or `make load mode=high-latency` to observe different latency patterns.
 - Verify:
     - PromQL p99 query returns values (see [docs/queries.md](docs/queries.md)).
     - Exemplars link to traces when available.
 - Learn more: [docs/metrics.md](docs/metrics.md).
-- Challenge: Adjust bucket boundaries in `config/otel/SdkMeterProviderConfig.java`, run `make down && make up`, then `make load`; observe the histogram and p95/p99 shift.
+- Challenge: Adjust bucket boundaries in `config/otel/SdkMeterProviderConfig.java`, run `make down && make up`, then `make load mode=high-latency`; observe the histogram and p95/p99 shift.
 
 **Key concepts**
 - Use Views to define explicit buckets in seconds; push via PeriodicMetricReader to preserve exemplars.
@@ -405,8 +391,6 @@ View source: [`MetricsRecorderAfterFilter.java`](src/main/java/com/gelerion/otel
 </details>
 
 ### Lab 4 – Logging: Correlate Logs with Traces
-
-Prerequisite: `make scenario-basics`
 
 - Goal: See `trace_id` and `span_id` in logs and in Loki.
 - Steps:
@@ -448,8 +432,6 @@ View source: [`LoggingTraceContextSetterBeforeFilter.java`](src/main/java/com/ge
 
 ### Lab 5 – Semantic Conventions and Schema URLs
 
-Prerequisite: `make scenario-basics`
-
 - Goal: Apply semconv consistently and declare schema version.
 - Steps:
     1. Inspect instrumentation version and schema URL in [`OtelContextPropagationBeforeFilter.java`](src/main/java/com/gelerion/otel/playground/filters/before/OtelContextPropagationBeforeFilter.java#L75-L81).
@@ -476,8 +458,6 @@ return GlobalOpenTelemetry.tracerBuilder("com.gelerion.otel.playground.http")
 </details>
 
 ### Lab 6 – Span Links and Async
-
-Prerequisite: `make scenario-basics`
 
 - Goal: Model causality outside parent/child trees.
 - Steps:

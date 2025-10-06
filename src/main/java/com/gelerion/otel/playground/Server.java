@@ -5,7 +5,9 @@ import static spark.Spark.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gelerion.otel.playground.config.otel.SdkOtelConfig;
 import com.gelerion.otel.playground.controller.HelloWorldController;
+import com.gelerion.otel.playground.featureflags.FeatureFlag;
 import com.gelerion.otel.playground.filters.after.MetricsRecorderAfterFilter;
+import com.gelerion.otel.playground.filters.before.FeatureFlagBeforeFilter;
 import com.gelerion.otel.playground.filters.before.LoggingTraceContextSetterBeforeFilter;
 import com.gelerion.otel.playground.filters.before.MetricsRecorderBeforeFilter;
 import com.gelerion.otel.playground.filters.before.OtelContextPropagationBeforeFilter;
@@ -37,8 +39,9 @@ public class Server {
 
         MetricsProvider metricsProvider = new MetricsProvider();
 
-        // setup Span and MDC context
-        before(new OtelContextPropagationBeforeFilter(),
+        // setup Span, MDC context, and feature flags
+        before(new FeatureFlagBeforeFilter(),
+               new OtelContextPropagationBeforeFilter(),
                new LoggingTraceContextSetterBeforeFilter(),
                new MetricsRecorderBeforeFilter(metricsProvider));
 
@@ -61,6 +64,7 @@ public class Server {
             Optional.ofNullable(req.<Span>attribute(OtelContextPropagationBeforeFilter.OTEL_SERVER_SPAN_ATTR))
                     .ifPresent(Span::end);
             ThreadContext.clearAll();
+            FeatureFlag.clear();
         };
     }
 }

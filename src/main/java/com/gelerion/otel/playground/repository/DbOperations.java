@@ -1,5 +1,6 @@
 package com.gelerion.otel.playground.repository;
 
+import com.gelerion.otel.playground.featureflags.FeatureFlag;
 import com.gelerion.otel.playground.filters.before.OtelContextPropagationBeforeFilter;
 import com.gelerion.otel.playground.metrics.MetricsProvider;
 import io.opentelemetry.api.common.Attributes;
@@ -55,7 +56,7 @@ public class DbOperations {
         // Metric attributes
         AttributesBuilder metricAttrs = Attributes.builder().putAll(commonAttributes);
 
-        // Remember: The scope controls what the “current” context is on this thread. Closing it restores the previous context.
+        // Remember: The scope controls what the "current" context is on this thread. Closing it restores the previous context.
         // It does not end the span.
         try (Scope __ = span.makeCurrent()) {
             // Inside the try block, Span.current() is your DB span; logs and any child spans will naturally attach to it.
@@ -99,20 +100,17 @@ public class DbOperations {
     }
 
     private void randomWaitOrThrow() {
+        FeatureFlag flag = FeatureFlag.current();
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
 
-        int minMs = Integer.parseInt(System.getenv().getOrDefault("DB_LATENCY_MIN_MS", "200"));
-        int maxMs = Integer.parseInt(System.getenv().getOrDefault("DB_LATENCY_MAX_MS", "3000"));
-        int waitMillis = rnd.nextInt(minMs, maxMs);
+        int waitMillis = rnd.nextInt(flag.dbMinLatency(), flag.dbMaxLatency());
         try {
             Thread.sleep(waitMillis);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
 
-        // A throw?
-        int errorThreshold = Integer.parseInt(System.getenv().getOrDefault("DB_ERROR_THRESHOLD", "7"));
-        if (rnd.nextInt(1, 11) > errorThreshold) {
+        if (rnd.nextDouble() < flag.dbErrorRate()) {
             throw new RuntimeException("Database not reachable");
         }
     }

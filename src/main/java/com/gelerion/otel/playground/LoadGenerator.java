@@ -33,17 +33,32 @@ public class LoadGenerator {
     }
 
     public static void main(String[] args) throws InterruptedException {
+        // Optional: Get feature flag from command line args
+        String featureFlag = args.length > 0 ? args[0] : null;
+        
         System.out.println("Starting load generator...");
+        if (featureFlag != null && !featureFlag.isBlank()) {
+            System.out.println("Using feature flag: " + featureFlag);
+        } else {
+            System.out.println("Using baseline feature flag (default)");
+        }
+
         ExecutorService executor = Executors.newFixedThreadPool(3);
 
         while (true) {
             String name = nextName();
             String url = BASE_URL + "/" + name;
 
-            HttpRequest request = HttpRequest.newBuilder()
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .GET()
-                    .build();
+                    .GET();
+
+            // Add feature flag header if specified
+            if (featureFlag != null && !featureFlag.isBlank()) {
+                requestBuilder.header("X-Feature-Flag", featureFlag);
+            }
+
+            HttpRequest request = requestBuilder.build();
 
             CompletableFuture<Void> future = client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                     .thenApply(HttpResponse::statusCode)
