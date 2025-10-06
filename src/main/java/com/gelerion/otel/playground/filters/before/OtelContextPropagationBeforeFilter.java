@@ -35,13 +35,6 @@ public class OtelContextPropagationBeforeFilter implements Filter {
 
     @Override
     public void handle(Request request, Response response) {
-        /*
-        Note: This is only applicable for manual instrumentation. If you use the Java agent, the headers are injected automatically.
-        To update a baggage, you will only need to do the following:
-            var base = Context.current();
-            var updated = Baggage.fromContext(base).toBuilder().put("tenant.id", tenantId).build();
-            var ctx = updated.storeInContext(base);
-         */
         var propagator = GlobalOpenTelemetry.getPropagators().getTextMapPropagator();
 
         // 1) Extracts the upstream trace context and baggage from the HTTP headers.

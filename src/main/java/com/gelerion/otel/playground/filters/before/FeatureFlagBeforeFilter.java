@@ -1,6 +1,6 @@
 package com.gelerion.otel.playground.filters.before;
 
-import com.gelerion.otel.playground.featureflags.FeatureFlag;
+import com.gelerion.otel.playground.feature.flags.FeatureFlag;
 import spark.Filter;
 import spark.Request;
 import spark.Response;

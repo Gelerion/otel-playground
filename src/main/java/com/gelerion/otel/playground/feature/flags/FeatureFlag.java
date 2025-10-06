@@ -1,4 +1,4 @@
-package com.gelerion.otel.playground.featureflags;
+package com.gelerion.otel.playground.feature.flags;
 
 import spark.Request;
 

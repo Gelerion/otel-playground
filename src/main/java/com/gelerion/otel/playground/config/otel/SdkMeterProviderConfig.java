@@ -11,41 +11,20 @@ import io.opentelemetry.sdk.resources.Resource;
 import java.time.Duration;
 import java.util.List;
 
-import static com.gelerion.otel.playground.config.otel.SdkOtelConfig.HTTP_COLLECTOR_URL;
+// Note: HTTP_COLLECTOR_URL is used in later labs when switching to OTLP
 
-/*
-SdkMeterProvider is the SDK implementation of MeterProvider and is responsible for handling metric telemetry produced by the API.
-opentelemetry-sdk-metrics
-
-SdkMeterProvider is configured by the application owner and consists of:
-    - Resource: The resource with which metrics are associated.
-    - MetricReader: Reads the aggregated state of metrics.
-        Optionally, with CardinalityLimitSelector for overriding the cardinality limit by instrument kind.
-        If unset, each instrument is limited to 2000 unique combinations of attributes per collection cycle.
-        Cardinality limits are also configurable for individual instruments via views. See cardinality limits for more details.
-    - MetricExporter: Exports metrics out of process (in conjunction with an associated MetricReader).
-    - Views: Configures metric streams, including dropping unused metrics.
- */
+// Lab-focused notes:
+// - Lab 4 moves metrics to OTLP; earlier labs log or keep disabled
+// - Views configure histogram buckets (seconds)
 public class SdkMeterProviderConfig {
 
     public static SdkMeterProvider create(Resource resource) {
-        // A logging exporter
-        // MetricExporter otlJsonMetricExporter = OtlpJsonLoggingMetricExporter.create();
+        // Lab 4 default will switch to OTLP; for Lab 2/3 keep metrics logging (or disabled)
+        MetricExporter otlJsonMetricExporter = OtlpJsonLoggingMetricExporter.create();
 
-        // A MetricReader is a plugin extension interface responsible for reading aggregated metrics.
-        // They are often paired with MetricExporters to export metrics out of process, but may also be used to serve
-        // metrics to external scrapers in pull-based protocols.
+        // Reader: push metrics periodically to the configured exporter
 
-        // Core SDK readers
-        //  - PeriodicMetricReader (push): On a fixed interval, it reads metrics from the SDK and hands them to a configured MetricExporter.
-        //  - PrometheusHttpServer (pull): Starts an HTTP server that exposes /metrics in Prometheus text format.
-
-        // Views
-        // There is a discussion on how to measure durations: in seconds or milliseconds.
-        // OTEL & Prometheus suggest seconds, but not all tools are aligned.
-        // Moreover, the default buckets for an explicit bucket histogram are aligned to milliseconds for http.server.duration,
-        // which renders the default buckets useless.
-        // See more at https://github.com/open-telemetry/opentelemetry-specification/issues/2977
+        // Views: explicit histogram buckets in seconds
         List<Double> buckets = List.of(0.1, 0.2, 0.3, 0.5, 0.75, 1d, 1.5, 2d, 3d, 5d, 7d);
         Aggregation.explicitBucketHistogram(buckets);
 
@@ -57,14 +36,10 @@ public class SdkMeterProviderConfig {
 
         // Registers a reader, exporter, and views.
         SdkMeterProviderBuilder builder = SdkMeterProvider.builder()
-                .setResource(resource)
+                .addResource(resource)
                 .registerView(allHistogramMetrics, finerBucketsView)
-                // Prints to the log (a bit verbose).
-                //.registerMetricReader(periodicMetricReader(otlJsonMetricExporter))
-                // Here is where we send trace data to the collector (make sure Docker Compose and Prometheus are running).
-                .registerMetricReader(periodicMetricReader(
-                        otlpHttpMetricExporter(HTTP_COLLECTOR_URL + "/v1/metrics"))
-                );
+                // Lab 2/3: log metrics instead of exporting to Collector
+                .registerMetricReader(periodicMetricReader(otlJsonMetricExporter));
 
         // For demo purposes, we enable exemplars for all metrics. The default is trace_based.
         //SdkMeterProviderUtil.setExemplarFilter(builder, ExemplarFilter.alwaysOn());
